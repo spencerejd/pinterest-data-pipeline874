@@ -39,7 +39,7 @@ class AWSDBConnector:
 new_connector = AWSDBConnector()
 
 def send_to_api_gateway(data, topic_name):
-    invoke_url = "https://rfrcndbjtb.execute-api.us-east-1.amazonaws.com/prod/{topic_name}"
+    invoke_url = f"https://rfrcndbjtb.execute-api.us-east-1.amazonaws.com/prod/{topic_name}"
     headers = {'Content-Type': 'application/vnd.kafka.json.v2+json'}
     # Prepare payload
     payload = json.dumps({"records": [{"value": data}]}, cls=DateTimeEncoder)
