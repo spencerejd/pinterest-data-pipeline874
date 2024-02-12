@@ -43,11 +43,12 @@ def send_to_api_gateway(data, stream_name):
     headers = {'Content-Type': 'application/json'}
     # Prepare payload
     payload = json.dumps({
+        "StreamName": stream_name,
         "Data": json.dumps(data, cls=DateTimeEncoder),  # No need to base64 encode here; it's handled by the API Gateway
         "PartitionKey": str(data.get("id", "defaultPartitionKey"))
     }, cls=DateTimeEncoder)
     # Send POST request
-    response = requests.post(invoke_url, headers=headers, data=payload)
+    response = requests.request("PUT", invoke_url, headers=headers, data=payload)
     return response
 
 
