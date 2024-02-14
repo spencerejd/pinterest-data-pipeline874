@@ -62,13 +62,15 @@ A script is used to emulate user posts from the Pinterest platform, which are se
 Run the user_posting_emulation.py file in the terminal, which should emulate a stream of data generated at Pinterest which captures data around posts made to Pinterest, user data and geolocation data.
 
 ## Batch Processing
+You will first perform batch processing of the Pinterest data generated.
 
-### Configure the EC2 Kafka Client
+### Configure the EC2 Kafka Client
+You will configure an Amazon EC2 instance to use as an Apache Kafka client machine.
 
 #### EC2 instance setup
 An EC2 instance is first configured to act as a client to communicate with an Apache Kafka cluster in AWS.
 To start with, you will need to navigate to the AWS EC2 dashboard to launch an EC2 instance. Give the instance a name and keep the default Application and OS Images and instance types. The other options available may require consideration on usage and cost.
-[image](images/EC_Instance_Configuration.png)
+![image](images/EC_Instance_Configuration.png)
 
 Under "Network & Security" you will then create a Key Pair. This will generate a private key file (`.pem`) which will grant you a secure SSH connection to locally access your EC2 instance.
 To connect to the EC2 instance, follow the SSH client
@@ -137,16 +139,73 @@ sasl.client.callback.handler.class = software.amazon.msk.auth.iam.IAMClientCallb
 ```
 
 #### Create topics on the Kafka cluster
-You can now proceed to create topics on the Kafka cluster using the client machine command line to complete EC2 Kafka configuration. You can retrieve the Bootstrap servers string from AWS MSK to create your topic. More information on this in the (AWS MSK documentation)[https://docs.aws.amazon.com/msk/latest/developerguide/create-topic.html].
+
+You can now proceed to create topics on the Kafka cluster using the client machine command line to complete EC2 Kafka configuration. You can retrieve the Bootstrap servers string from AWS MSK to create your topic. More information on this in the !(AWS MSK documentation)[https://docs.aws.amazon.com/msk/latest/developerguide/create-topic.html]
 
 ```
 <path-to-your-kafka-installation>/bin/kafka-topics.sh --create --bootstrap-server <BootstrapServerString> --command-config client.properties --topic <topic name>
 ```
+
 In this project we created three topics to represent `pinterest_data`, `geolocation_data` and `user_data`.
 
+### Connect a MSK cluster to a S3 bucket
+You will need to create the S3 bucket that you will use to store the data that will pass through your Kafka cluster.
+On your EC2 client command line, download the Confluent.io Amazon S3 connector:
 
+```
+# download package
+sudo wget https://packages.confluent.io/archive/7.2/confluent-7.2.0.tar.gz
+# unpack .tar
+tar -xvzf confluent-7.2.0.tar.gz 
+```
 
+Next, change the `bootstrap.servers` and the `zookeeper.connect` variables to those found in the MSK cluster setup. Then modify the kafka-rest.properties file to enable authentication:
 
+```
+# navigate to the correct directory
+cd confluent-7.2.0/etc/kafka-rest/
+nano kafka-rest.properties
+
+# Sets up TLS for encryption and SASL for authN.
+client.security.protocol = SASL_SSL
+
+# Identifies the SASL mechanism to use.
+client.sasl.mechanism = AWS_MSK_IAM
+
+# Binds SASL client implementation.
+client.sasl.jaas.config = software.amazon.msk.auth.iam.IAMLoginModule required;
+
+# Encapsulates constructing a SigV4 signature based on extracted credentials.
+# The SASL client bound by "sasl.jaas.config" invokes this class.
+client.sasl.client.callback.handler.class = software.amazon.msk.auth.iam.IAMClientCallbackHandler
+```
+
+Refer to the !(Confluent documentation)[https://docs.confluent.io/kafka-connectors/s3-sink/current/overview.html] on setting up the MSK connection to the S3 bucket.
+
+### Configuring an API in API Gateway
+To further replicate Pinterest's data pipeline, we will need our own API which will send data to the MSK cluster, which in turn will be stored in an S3 bucket, using the connector built previously.
+
+Navigate to AWS API Gateway to build an API. Select the relevant option to build a REST API. Refer to the !(API Gateway documentation)[https://docs.aws.amazon.com/apigateway/latest/developerguide/how-to-create-api.html] on setup.
+Within your API, you need to build a Kafka REST proxy integration method. Configure a proxy resource that allows you to attach the PublicDNS from your EC2 client as the Endpoint URL.
+Deploy the API and make note of the Invoke URL.
+
+Now you need to set up the Kafka REST Proxy on your EC2 client machine.
+Install the Confluent package for the Kafka REST Proxy on your EC2 client, then modify the kafka-rest.properties file to enable the REST proxy to perform IAM authentication for the MSK cluster. Refer to the !(Confluent S3 Sink Connector documentation)[https://www.confluent.io/hub/confluentinc/kafka-connect-s3] for more.
+
+Modify the `user_posting_emulation.py` file to send data to your Kafka topics using your API Invoke URL and check data is sent to your cluster by running a Kafka consumer.
+
+### Batch Processing on Databricks using Apache Spark
+
+In order to batch process the data on Databricks, it's first necessary to mount the S3 bucket.
+The file (`Mount_S3_Bucket.ipynb`)[Mount_S3_Bucket.ipynb] contains the necessary steps to perform this which involves:
+    1. Importing required libraries
+    2. Read AWS credentials file into Spark DataFrame for authentication
+    3. Mount the S3 bucket containing messages from the Kafka topics
+
+Following the mounting of the S3 bucket, the file !(`data_cleaning_batch_data.ipynb`)[data_cleaning_batch_data.ipynb] contains the code for reading the .json message from Kafka into three Spark DataFrames (one for each topic). Then data cleaning operations are performed on the Dataframes. You will also find code for querying the dataframes and particular insights about the data included to check quality of data cleaning operations.
+
+### Automating Batch Processing with AWS MWAA
+AWS MWAA was then used to automate the process of running the batch processing operation on Databricks. The file !(`0a1667ad2f7f_dag.py`)[0a1667ad2f7f_dag.py] contains a script for an Airflow DAG that will orchestrate the running of the notebook file above. In this instance, the workflow was scheduled at weekly intervals.
 
 ### Data Ingestion
 Kafka used to facilitate the storage of data from the script/API into an s3 bucket
