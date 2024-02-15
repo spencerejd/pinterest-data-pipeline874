@@ -192,53 +192,130 @@ Modify the [user_posting_emulation.py](user_posting_emulation.py) file to send d
 
 In order to batch process the data on Databricks, it's first necessary to mount the S3 bucket.
 The file [Mount_S3_Bucket.ipynb](Mount_S3_Bucket.ipynb) contains the necessary steps to perform this which involves:
-    1. Importing required libraries
-    2. Read AWS credentials file into Spark DataFrame for authentication
-    3. Mount the S3 bucket containing messages from the Kafka topics
+1. Importing required libraries
+2. Read AWS credentials file into Spark DataFrame for authentication
+3. Mount the S3 bucket containing messages from the Kafka topics
 
 Following the mounting of the S3 bucket, the file [data_cleaning_batch_data.ipynb](data_cleaning_batch_data.ipynb) contains the code for reading the .json message from Kafka into three Spark DataFrames (one for each topic). Then data cleaning operations are performed on the Dataframes. You will also find code for querying the dataframes and particular insights about the data included to check quality of data cleaning operations.
 
 ### Automating Batch Processing with AWS MWAA
 AWS MWAA was then used to automate the process of running the batch processing operation on Databricks. The file [0a1667ad2f7f_dag.py](0a1667ad2f7f_dag.py) contains a script for an Airflow DAG that will orchestrate the running of the notebook file above. In this instance, the workflow was scheduled at weekly intervals.
 
-### Data Ingestion
-Kafka used to facilitate the storage of data from the script/API into an s3 bucket
-
-Kafka REST Proxy essentially enables  data to flow from the script directly to the MSK cluster (?),
-### Batch Processing
-Airflow (MWAA) takes the data from S3 bucket 
 ### Stream Processing
-Kinesis Data stream is read into Databricks and transformed
+Three streams were created in AWS Kinesis for processing streaming data, for the data sources.
+The previously created REST API was then configured in API Gateway to allow it to invoke Kinesis actions. Ensure that you have the appropriate IAM policies attached to the relevant IAM role to perform these actions.
 
+#### API configuration with Kinesis proxy integration
+Provision a new resource with the name streams.
+![image](images/REST_API_Create_Resource.png)
+Create a new method, with `GET` as the method type and define the following to create your method:
+- Integration type - 'AWS Service'
+- AWS Region - 'us-east-1'
+- AWS Service - 'Kinesis'
+- HTTP method - `POST`
+- Action Type - 'User action name'
+- Execution role - copy the ARN of your Kinesis access Role
 
-## Dataset
-The project contains a script, <u>user_posting_emulation.py<u> that will mimic the stream of data points received by the Pinterest API following POST requests made by users uploading data onto Pinterest.
-The script instantiates a database connector class, which is used to connect to a AWS RDS database which contains the following tables:
-- `pinterest_data`
+In 'Integration Request' under 'HTTP Headers', add a new header:
+- 'Name': 'Content-Type'
+- 'Mapped from': 'application/x-amz-json-1.1'
 
+Under 'Mapping Templates', add new mapping template:
+- 'Content Type': 'application/json'
+- 'Template body': `{}`
 
-## Project Dependencies
-To run the project, the following modules are required:
-- `sqlalchemy`
-- `requests`
+To enable you to create, describe and delete streams in Kinesis, three additional methods were defined.
+Under the `streams` resource, a new child resource with the Resource name `{stream-name}` was created with the following methods defined: `POST`, `GET` and `DELETE`.
+For these methods, the same settings were used in the `GET` method mentioned above except for:
+- `GET`
+    - 'Action': 'DescribeStream'
+- 'Mapping Template':
 
+```
+{
+    "StreamName": "$input.params('stream-name')"
+}
+```
 
+- `POST`
+    - 'Action': 'CreateStream'
+    - 'Mapping Template':
 
+```
+{
+    "ShardCount": #if($input.path('$.ShardCount') == '') 5 #else $input.path('$.ShardCount') #end,
+    "StreamName": "$input.params('stream-name')"
+}
+```
+- `DELETE`
+    - 'Action': 'DeleteStream'
+    - 'Mapping Template':
 
-## Installation instructions
+```
+{
+    "StreamName": "$input.params('stream-name')"
+}
+```
 
-## Usage instructions
+To add records to streams in Kinesis, two new child resources were created under the `{stream-name}` resource with the resource name `record` and `records`. A `PUT` method was created in both.
+This followed the above settings except for:
+
+record `PUT` method
+    - 'Action': 'PutRecord'
+    - 'Mapping Template':
+
+```
+{
+    "StreamName": "$input.params('stream-name')",
+    "Data": "$util.base64Encode($input.json('$.Data'))",
+    "PartitionKey": "$input.path('$.PartitionKey')"
+}
+```
+
+records `PUT` method
+    - 'Action': 'PutRecord'
+    - 'Mapping Template':
+
+```
+{
+    "StreamName": "$input.params('stream-name')",
+    "Records": [
+       #foreach($elem in $input.path('$.records'))
+          {
+            "Data": "$util.base64Encode($elem.data)",
+            "PartitionKey": "$elem.partition-key"
+          }#if($foreach.hasNext),#end
+        #end
+    ]
+}
+```
+
+#### Send data to the Kinesis streams
+Run the script [user_posting_emulation_stream_data.py](user_posting_emulation_stream_data.py), which will initiate an infinite loop to retrieve Pinterest data records and send them via the API to Kinesis.
+
+#### Processing the streaming data
+The notebook [stream_processing.ipynb](/stream_processing.ipynb) contains all the code necessary to retrieve the streams from Kinesis, clean the data and load it into Delta Tables on Databricks. Some of the steps taken in this notebook include:
+1. Importing required libraries
+2. Read AWS credentials file into Spark DataFrame for authentication
+3. Read Kinesis streaming data into notebook
+4. Deserialize streaming data
+5. Define schema to parse JSON data into DataFrame
+6. Clean all three DataFrame streams
+7. Write streams to Delta tables
+
+## Next steps
+To replicate the Pinterest Data Pipeline, additional steps may be necessary for business uses, such as allowing the querying of the streaming data by using the relevant data visualisation tools such as Tableau or Power BI.
 
 ## File structure of the project
 The project is structured as follows:
 
 `user_posting_emulation.py`: File emulates user posting behaviour for eventual batch processing
 
-`user_posting_emulation_streaming.py`: Simulates user posting behavior for streaming data
+`user_posting_emulation_stream_data.py`: Simulates user posting behavior for streaming data
 
-`Milestone_7_Batch_Processing_Databricks.ipynb`: Databricks notebook for batch processing
+`data_cleaning_batch_data.ipynb`: Databricks notebook for batch processing
 
-`Milestone_9_Stream_Processing.ipynb`:  Databricks notebook for stream processing
+`stream_processing.ipynb`:  Databricks notebook for stream processing
 
 `0a1667ad2f7f_dag.py` : Apache Airflow DAG file for workflow orchestration
 
