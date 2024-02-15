@@ -2,11 +2,19 @@
 
 ## Table of Contents
 1. [Project Description](#project-description)
-    1. [What It Does](#what-it-does)
-2. [Installation instructions](#installation-instructions)
-3. [Usage instructions](#usage-instructions)
-4. [File structure of the project](#file-structure-of-the-project)
-5. [Licence information](#licence-information)
+2. [Technologies used](#technologies-used)
+3. [Project Overview](#project-overview)
+4. [Building the Pinterest Data Pipeline](#building-the-pinterest-data-pipeline)
+    - [Generate Pinterest Data](#generate-pinterest-data)
+5. [Batch Processing](#batch-processing)
+    - [Configure the EC2 Kafka Client](#configure-the-ec2-kafka-client)
+    - [Connect a MSK cluster to a S3 bucket](#connect-a-msk-cluster-to-a-s3-bucket)
+    - [Configuring an API in API Gateway](#configuring-an-api-in-api-gateway)
+    - [Automating Batch Processing with AWS MWAA](#automating-batch-processing-with-aws-mwaa)
+6. [Stream Processing](#stream-processing)
+7. [Next steps](#next-steps)
+8. [File structure of the project](#file-structure-of-the-project)
+9. [Licence information](#licence-information)
 
 ## Project Description
 This project replicates a data pipeline similar to the one used by Pinterest for processing billions of data points daily. In this project, the data pipeline created encompasses various stages including batch processing, stream processing and data transformation and analysis using tools such as Apache Kafka Amazon S3, AWS Kinesis and Databricks. This provides hands-on experience with these technologies, emulating a real-world data engineering scenario.
@@ -49,7 +57,8 @@ This project replicates a data pipeline similar to the one used by Pinterest for
 The project will entail replicating Pinterest's end-to-end Data processing pipeline, leveraging both batch and stream processing. 
 A script is used to emulate user posts from the Pinterest platform, which are sent to an API. This stream of data initially utilises MSK Connect, which facilitates the use of Kafka for its storage in an S3 bucket. Airflow is leveraged to extract batch data from the S3 bucket and stream it to Kinesis. The data processing pipeline is complete with the streamed data cleaned by Spark.
 
-## Building the Pinterest Data Pipeline
+## Building the Pinterest Data Pipeline
+
 To begin building the data pipeline, you need to generate your set of data which will emulate the data produced from Pinterest users.  
 
 ### Generate Pinterest Data
@@ -132,7 +141,7 @@ sasl.jaas.config = software.amazon.msk.auth.iam.IAMLoginModule required;
 sasl.client.callback.handler.class = software.amazon.msk.auth.iam.IAMClientCallbackHandler
 ```
 
-#### Create topics on the Kafka cluster
+#### Create topics on the Kafka cluster
 
 You can now proceed to create topics on the Kafka cluster using the client machine command line to complete EC2 Kafka configuration. You can retrieve the Bootstrap servers string from AWS MSK to create your topic. More information on this in the [AWS MSK documentation](https://docs.aws.amazon.com/msk/latest/developerguide/create-topic.html)
 
