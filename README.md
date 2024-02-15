@@ -302,7 +302,7 @@ records `PUT` method
 #### Send data to the Kinesis streams
 Run the script [user_posting_emulation_stream_data.py](user_posting_emulation_stream_data.py), which will initiate an infinite loop to retrieve Pinterest data records and send them via the API to Kinesis.
 
-#### Processing the streaming data
+#### Processing the streaming data
 The notebook [stream_processing.ipynb](/stream_processing.ipynb) contains all the code necessary to retrieve the streams from Kinesis, clean the data and load it into Delta Tables on Databricks. Some of the steps taken in this notebook include:
 1. Importing required libraries
 2. Read AWS credentials file into Spark DataFrame for authentication
