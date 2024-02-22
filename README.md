@@ -1,20 +1,20 @@
 # Pinterest Data Pipeline
 
 ## Table of Contents
-1. [Project Description](#project-description)
-2. [Technologies used](#technologies-used)
-3. [Project Overview](#project-overview)
-4. [Building the Pinterest Data Pipeline](#building-the-pinterest-data-pipeline)
+- [Project Description](#project-description)
+- [Technologies used](#technologies-used)
+- [Project Overview](#project-overview)
+- [Building the Pinterest Data Pipeline](#building-the-pinterest-data-pipeline)
     - [Generate Pinterest Data](#generate-pinterest-data)
-5. [Batch Processing](#batch-processing)
+- [Batch Processing](#batch-processing)
     - [Configure the EC2 Kafka Client](#configure-the-ec2-kafka-client)
     - [Connect a MSK cluster to a S3 bucket](#connect-a-msk-cluster-to-a-s3-bucket)
     - [Configuring an API in API Gateway](#configuring-an-api-in-api-gateway)
     - [Automating Batch Processing with AWS MWAA](#automating-batch-processing-with-aws-mwaa)
-6. [Stream Processing](#stream-processing)
-7. [Next steps](#next-steps)
-8. [File structure of the project](#file-structure-of-the-project)
-9. [Licence information](#licence-information)
+- [Stream Processing](#stream-processing)
+- [Next steps](#next-steps)
+- [File structure of the project](#file-structure-of-the-project)
+- [Licence information](#licence-information)
 
 ## Project Description
 This project replicates a data pipeline similar to the one used by Pinterest for processing billions of data points daily. In this project, the data pipeline created encompasses various stages including batch processing, stream processing and data transformation and analysis using tools such as Apache Kafka Amazon S3, AWS Kinesis and Databricks. This provides hands-on experience with these technologies, emulating a real-world data engineering scenario.
